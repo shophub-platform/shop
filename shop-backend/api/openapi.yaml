@@ -1,0 +1,1129 @@
+openapi: 3.0.3
+
+info:
+  title: ShopHub Shop API
+  version: 1.0.0
+  description: |
+    REST API za ShopHub shop servis.
+
+    ## Autentifikacija
+    Svi zaštićeni endpointi koriste JWT Bearer token u Authorization headeru.
+    Token se dobija od centralnog `shophub` Auth servisa.
+
+    ## Role
+    - **ADMIN** – vlasnik prodavnice: može da kreira/menja/briše artikle i vidi sve porudžbine
+    - **USER**  – kupac: može da pretražuje artikle, upravlja korpom i kreira porudžbine
+
+    ## Flow plaćanja (blockchain)
+    1. `POST /orders` → kreira porudžbinu, status = `PENDING_PAYMENT`
+    2. Frontend poziva MockUSDT `approve(shopContract, amount)` na Sepolia mreži
+    3. Frontend poziva `POST /orders/{id}/pay` sa blockchain `txHash`
+    4. Backend verifikuje transakciju na-chain i menja status u `PAID`
+
+servers:
+  - url: http://localhost:8081
+    description: Lokalni development server
+  - url: https://shop.shophub.example.com
+    description: Produkcija (placeholder)
+
+# ─── Security scheme ─────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token iz shophub Auth servisa
+
+  # ─── Reusable schemas ───────────────────────────────────────────────────────
+  schemas:
+
+    # --- Standard response wrappers ---
+
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          description: Payload specifičan za svaki endpoint
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: "NOT_FOUND"
+            message:
+              type: string
+              example: "Artikal nije pronađen"
+
+    PaginatedMeta:
+      type: object
+      required: [page, pageSize, total, totalPages]
+      properties:
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+
+    # --- Domain schemas ---
+
+    Item:
+      type: object
+      required: [id, name, price, stock, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Nike Air Max 90"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          example: "Klasična sportska obuća"
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          exclusiveMinimum: true
+          example: 129.99
+          description: Cena u mUSDT (18 decimala se čuva u bazi, API vraća float)
+        stock:
+          type: integer
+          minimum: 0
+          example: 42
+          description: Broj komada na raspolaganju
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://cdn.shophub.example.com/items/nike-air-max-90.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-16T08:00:00Z"
+
+    CreateItemRequest:
+      type: object
+      required: [name, price, stock]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Nike Air Max 90"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          example: "Klasična sportska obuća"
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          exclusiveMinimum: true
+          example: 129.99
+        stock:
+          type: integer
+          minimum: 0
+          example: 42
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://cdn.shophub.example.com/items/nike-air-max-90.jpg"
+
+    UpdateItemRequest:
+      type: object
+      description: Sva polja su opcionalna — šalje se samo ono što se menja (PATCH semantika)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Nike Air Max 90 (Novo)"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          exclusiveMinimum: true
+          example: 119.99
+        stock:
+          type: integer
+          minimum: 0
+          example: 100
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    CartItem:
+      type: object
+      required: [id, item, quantity, subtotal]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID stavke u korpi
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        item:
+          $ref: "#/components/schemas/Item"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        subtotal:
+          type: number
+          format: decimal
+          example: 259.98
+          description: quantity * item.price
+
+    Cart:
+      type: object
+      required: [id, userId, items, total, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "cart-uuid-1234"
+        userId:
+          type: string
+          example: "user-uuid-5678"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        total:
+          type: number
+          format: decimal
+          example: 389.97
+          description: Ukupna vrednost korpe u mUSDT
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-16T09:45:00Z"
+
+    AddToCartRequest:
+      type: object
+      required: [itemId, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+
+    UpdateCartItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          example: 3
+
+    OrderStatus:
+      type: string
+      enum:
+        - PENDING_PAYMENT
+        - PAID
+        - PROCESSING
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+      description: |
+        - `PENDING_PAYMENT` – porudžbina kreirana, čeka blockchain plaćanje
+        - `PAID` – transakcija potvrđena on-chain
+        - `PROCESSING` – admin prihvatio porudžbinu, priprema se
+        - `SHIPPED` – poslato
+        - `DELIVERED` – dostavljeno
+        - `CANCELLED` – otkazano
+
+    OrderItem:
+      type: object
+      required: [id, itemId, itemName, quantity, unitPrice, subtotal]
+      properties:
+        id:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+        itemName:
+          type: string
+          example: "Nike Air Max 90"
+          description: Snapshot naziva u trenutku porudžbine (čuva se jer se cena/naziv mogu promeniti)
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        unitPrice:
+          type: number
+          format: decimal
+          example: 129.99
+          description: Snapshot cene u trenutku porudžbine
+        subtotal:
+          type: number
+          format: decimal
+          example: 259.98
+
+    Order:
+      type: object
+      required: [id, userId, items, total, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "order-uuid-9999"
+        userId:
+          type: string
+          example: "user-uuid-5678"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        total:
+          type: number
+          format: decimal
+          example: 389.97
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        txHash:
+          type: string
+          nullable: true
+          example: "0xabc123def456..."
+          description: Blockchain transaction hash (popunjava se nakon plaćanja)
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-16T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-16T10:05:00Z"
+
+    CreateOrderRequest:
+      type: object
+      description: Kreira porudžbinu iz trenutnog sadržaja korpe. Korpa se prazni nakon uspešnog kreiranja.
+      properties: {}
+      example: {}
+
+    ConfirmPaymentRequest:
+      type: object
+      required: [txHash]
+      properties:
+        txHash:
+          type: string
+          minLength: 66
+          maxLength: 66
+          example: "0xabc123def456789abc123def456789abc123def456789abc123def456789abcd"
+          description: |
+            Ethereum transaction hash (0x + 64 hex karaktera).
+            Backend verifikuje da je transakcija uspešna na Sepolia mreži
+            i da je iznos odgovara ukupnoj vrednosti porudžbine.
+
+    UpdateOrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PROCESSING, SHIPPED, DELIVERED, CANCELLED]
+          description: Admin može da menja status samo za porudžbine sa statusom PAID ili višim. Ne može da postavi PENDING_PAYMENT ili PAID (to radi sistem).
+
+    HealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          example: "ok"
+        service:
+          type: string
+          example: "shop"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-16T10:00:00Z"
+
+  # ─── Reusable parameters ────────────────────────────────────────────────────
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Broj stranice
+
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Broj rezultata po stranici
+
+  # ─── Reusable responses ─────────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Token nedostaje ili je nevažeći
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "Token je nevažeći ili je istekao"
+
+    Forbidden:
+      description: Korisnik nema dozvolu za ovu akciju
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "FORBIDDEN"
+              message: "Nemate dozvolu za ovu akciju"
+
+    NotFound:
+      description: Resurs nije pronađen
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "NOT_FOUND"
+              message: "Resurs nije pronađen"
+
+    BadRequest:
+      description: Nevažeći podaci u zahtevu
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Cena mora biti veća od 0"
+
+# ─── Paths ───────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      summary: Health check
+      description: Proverava da li je servis aktivan. Koristi ga Kubernetes liveness/readiness probe.
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        "200":
+          description: Servis je aktivan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HealthResponse"
+
+  # ── Items ────────────────────────────────────────────────────────────────────
+
+  /items:
+    get:
+      summary: Listaj artikle
+      description: |
+        Vraća paginisanu listu svih artikala.
+        Dostupno svima (javni endpoint, ne zahteva autentifikaciju).
+        Podržava pretragu po nazivu i filtriranje.
+      operationId: listItems
+      tags: [Items]
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Pretraga po nazivu artikla (case-insensitive, contains)
+          example: "nike"
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+          description: Minimalna cena
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+          description: Maksimalna cena
+        - name: inStock
+          in: query
+          schema:
+            type: boolean
+          description: Ako je true, vraća samo artikle koji imaju stock > 0
+      responses:
+        "200":
+          description: Lista artikala
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, meta]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Item"
+                          meta:
+                            $ref: "#/components/schemas/PaginatedMeta"
+
+    post:
+      summary: Kreiraj artikal
+      description: Kreira novi artikal u prodavnici. Samo ADMIN.
+      operationId: createItem
+      tags: [Items]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItemRequest"
+      responses:
+        "201":
+          description: Artikal uspešno kreiran
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Item"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /items/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID artikla
+
+    get:
+      summary: Dohvati artikal
+      description: Vraća detalje jednog artikla. Dostupno svima.
+      operationId: getItem
+      tags: [Items]
+      responses:
+        "200":
+          description: Detalji artikla
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Item"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Ažuriraj artikal
+      description: |
+        Menja podatke artikla. Samo ADMIN.
+        Šalje se samo polja koja se menjaju (PATCH semantika, ali koristimo PUT
+        radi jednostavnosti — neposlatá polja ostaju nepromenjena).
+      operationId: updateItem
+      tags: [Items]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItemRequest"
+      responses:
+        "200":
+          description: Artikal uspešno ažuriran
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Item"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Obriši artikal
+      description: |
+        Briše artikal iz prodavnice. Samo ADMIN.
+        Ako artikal postoji u aktivnim porudžbinama (PENDING_PAYMENT ili PAID),
+        brisanje nije dozvoljeno — vraća 409 Conflict.
+      operationId: deleteItem
+      tags: [Items]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Artikal uspešno obrisan
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Artikal se nalazi u aktivnoj porudžbini
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "CONFLICT"
+                  message: "Artikal se nalazi u aktivnoj porudžbini i ne može biti obrisan"
+
+  # ── Cart ─────────────────────────────────────────────────────────────────────
+
+  /cart:
+    get:
+      summary: Dohvati korpu
+      description: |
+        Vraća trenutno stanje korpe prijavljenog korisnika.
+        Svaki korisnik ima tačno jednu korpu koja se automatski kreira.
+      operationId: getCart
+      tags: [Cart]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Stanje korpe
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Cart"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Isprazni korpu
+      description: Uklanja sve stavke iz korpe. Korpa ostoji (prazan objekat), samo se items brišu.
+      operationId: clearCart
+      tags: [Cart]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Korpa uspešno ispraznjena
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /cart/items:
+    post:
+      summary: Dodaj stavku u korpu
+      description: |
+        Dodaje artikal u korpu. Ako artikal već postoji u korpi,
+        količina se povećava za navedeni amount.
+        Proverava se dostupnost na stanju (stock).
+      operationId: addToCart
+      tags: [Cart]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddToCartRequest"
+      responses:
+        "200":
+          description: Ažurirana korpa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Artikal nije pronađen
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Nema dovoljno na stanju
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "INSUFFICIENT_STOCK"
+                  message: "Na stanju ima samo 3 komada"
+
+  /cart/items/{itemId}:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID artikla u korpi
+
+    put:
+      summary: Promeni količinu stavke
+      description: Postavlja novu količinu za datu stavku u korpi. Proverava stock.
+      operationId: updateCartItem
+      tags: [Cart]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCartItemRequest"
+      responses:
+        "200":
+          description: Ažurirana korpa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Nema dovoljno na stanju
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Ukloni stavku iz korpe
+      description: Potpuno uklanja jednu stavku iz korpe.
+      operationId: removeFromCart
+      tags: [Cart]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Ažurirana korpa (bez uklonjene stavke)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Cart"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Orders ───────────────────────────────────────────────────────────────────
+
+  /orders:
+    get:
+      summary: Listaj porudžbine
+      description: |
+        - **ADMIN**: vraća sve porudžbine (sve prodavnice)
+        - **USER**: vraća samo svoje porudžbine
+
+        Podržava filtriranje po statusu.
+      operationId: listOrders
+      tags: [Orders]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+          description: Filtriraj po statusu porudžbine
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: "Filtriraj po korisniku (samo ADMIN)"
+      responses:
+        "200":
+          description: Lista porudžbina
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [orders, meta]
+                        properties:
+                          orders:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Order"
+                          meta:
+                            $ref: "#/components/schemas/PaginatedMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Kreiraj porudžbinu
+      description: |
+        Kreira novu porudžbinu iz trenutnog sadržaja korpe.
+
+        **Preduslovi:**
+        - Korpa ne sme biti prazna
+        - Svi artikli moraju biti dostupni na stanju (stock)
+
+        **Nakon uspešnog kreiranja:**
+        - Porudžbina dobija status `PENDING_PAYMENT`
+        - Stock se rezerviše (smanjuje) za sve stavke
+        - Korpa se prazni
+
+        **Sledeći korak:** Frontend poziva blockchain `approve()` i zatim
+        `POST /orders/{id}/pay` sa transaction hash-om.
+      operationId: createOrder
+      tags: [Orders]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Porudžbina kreirana, čeka plaćanje
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Order"
+        "400":
+          description: Korpa je prazna ili nedostaje stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "EMPTY_CART"
+                  message: "Korpa je prazna"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID porudžbine
+
+    get:
+      summary: Dohvati porudžbinu
+      description: |
+        Vraća detalje jedne porudžbine.
+        USER može videti samo svoje porudžbine.
+        ADMIN može videti sve.
+      operationId: getOrder
+      tags: [Orders]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Detalji porudžbine
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}/pay:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID porudžbine
+
+    post:
+      summary: Potvrdi blockchain plaćanje
+      description: |
+        Poziva se nakon što frontend uspešno izvrši ERC20 transfer na Sepolia mreži.
+
+        **Backend radi:**
+        1. Proverava da je porudžbina u statusu `PENDING_PAYMENT`
+        2. Poziva Alchemy/Sepolia RPC i verifikuje da je txHash validan
+        3. Proverava da je iznos transakcije tačan (jednako `order.total` u mUSDT)
+        4. Menja status porudžbine u `PAID`
+        5. Čuva txHash u porudžbini
+
+        **Napomena:** Endpoint ima timeout od 30s za blockchain verifikaciju.
+        Ako transakcija još nije potvrđena, vraća 202 Accepted — frontend treba da retry-uje.
+      operationId: confirmPayment
+      tags: [Orders]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmPaymentRequest"
+      responses:
+        "200":
+          description: Plaćanje potvrđeno, porudžbina je PAID
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Order"
+        "202":
+          description: Transakcija još nije potvrđena na mreži — pokušaj ponovo za nekoliko sekundi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "TX_PENDING"
+                  message: "Transakcija još nije potvrđena na Sepolia mreži"
+        "400":
+          description: Nevažeći txHash ili pogrešan iznos transakcije
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "PAYMENT_INVALID"
+                  message: "Iznos transakcije ne odgovara vrednosti porudžbine"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Porudžbina nije u statusu PENDING_PAYMENT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "INVALID_STATUS"
+                  message: "Porudžbina je već plaćena ili je otkazana"
+
+  /orders/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID porudžbine
+
+    patch:
+      summary: Ažuriraj status porudžbine
+      description: |
+        Admin menja status porudžbine kroz lifecycle (PAID → PROCESSING → SHIPPED → DELIVERED).
+        Može da otkaže porudžbinu (→ CANCELLED) ako još nije isporučena.
+
+        Dozvoljene tranzicije:
+        - `PAID` → `PROCESSING` ili `CANCELLED`
+        - `PROCESSING` → `SHIPPED` ili `CANCELLED`
+        - `SHIPPED` → `DELIVERED`
+
+        Samo ADMIN.
+      operationId: updateOrderStatus
+      tags: [Orders]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+      responses:
+        "200":
+          description: Status uspešno promenjen
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Order"
+        "400":
+          description: Nevažeća tranzicija statusa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  code: "INVALID_STATUS_TRANSITION"
+                  message: "Nije moguće preći iz SHIPPED u PROCESSING"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+# ─── Tags ────────────────────────────────────────────────────────────────────
+
+tags:
+  - name: Health
+    description: Zdravstvene probe za Kubernetes
+  - name: Items
+    description: Upravljanje artiklima prodavnice
+  - name: Cart
+    description: Košarica kupca
+  - name: Orders
+    description: Porudžbine i blockchain plaćanje
