@@ -19,12 +19,13 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Host     string
-	Port     string
-	Name     string
-	User     string
-	Password string
-	SSLMode  string
+	Host       string
+	Port       string
+	Name       string
+	User       string
+	Password   string
+	SSLMode    string
+	LogQueries bool
 }
 
 type LogConfig struct {
@@ -40,12 +41,13 @@ func Load() *Config {
 			Env:  getEnv("APP_ENV", "development"),
 		},
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			Name:     getEnv("DB_NAME", "shop"),
-			User:     getEnv("DB_USER", "shop"),
-			Password: getEnv("DB_PASSWORD", "shop"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			Host:       getEnv("DB_HOST", "localhost"),
+			Port:       getEnv("DB_PORT", "5432"),
+			Name:       getEnv("DB_NAME", "shop"),
+			User:       getEnv("DB_USER", "shop"),
+			Password:   getEnv("DB_PASSWORD", "shop"),
+			SSLMode:    getEnv("DB_SSLMODE", "disable"),
+			LogQueries: getEnv("DB_LOG_QUERIES", "false") == "true",
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),

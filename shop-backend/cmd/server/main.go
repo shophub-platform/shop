@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/shophub/shop/internal/config"
+	"github.com/shophub/shop/internal/database"
 	"github.com/shophub/shop/internal/handler"
 	"github.com/shophub/shop/internal/middleware"
 )
@@ -33,6 +34,14 @@ func main() {
 		logger, _ = zap.NewDevelopment()
 	}
 	defer logger.Sync()
+
+	// Inicijalizacija baze podataka
+	db, err := database.NewPostgres(cfg.Database)
+	if err != nil {
+		logger.Fatal("failed to connect to database", zap.Error(err))
+	}
+	logger.Info("database connected and migrated")
+	_ = db // TODO: proslediti repository-ima kada se implementiraju handleri
 
 	// Inicijalizacija router-a
 	// chi je kao Spring MVC DispatcherServlet - prima sve zahteve i rutira ih
