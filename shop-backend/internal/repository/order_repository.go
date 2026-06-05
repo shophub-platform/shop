@@ -21,4 +21,7 @@ type OrderRepository interface {
 	// UpdateStatus sets the new status and optionally saves the txHash.
 	UpdateStatus(ctx context.Context, id uuid.UUID, status model.OrderStatus, txHash *string) error
 	FindByTxHash(ctx context.Context, txHash string) (*model.Order, error)
+	// FindByIdempotencyKey returns the order previously created with the given key.
+	// Returns ErrNotFound if no such order exists.
+	FindByIdempotencyKey(ctx context.Context, key string) (*model.Order, error)
 }

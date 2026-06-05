@@ -5,12 +5,12 @@ import (
 	"strconv"
 )
 
-// Config drži sve konfiguracione vrednosti aplikacije.
-// U Spring-u bi ovo bio @ConfigurationProperties klasa.
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Redis    RedisConfig
 	Log      LogConfig
+	JWT      JWTConfig
 }
 
 type ServerConfig struct {
@@ -18,7 +18,10 @@ type ServerConfig struct {
 	Env  string
 }
 
+// DatabaseConfig holds PostgreSQL settings.
+// DB_TYPE selects the active storage backend: "postgres" (default) or "redis".
 type DatabaseConfig struct {
+	Type       string // postgres | redis
 	Host       string
 	Port       string
 	Name       string
@@ -28,12 +31,20 @@ type DatabaseConfig struct {
 	LogQueries bool
 }
 
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
 type LogConfig struct {
 	Level string
 }
 
-// Load čita konfiguraciju iz environment varijabli (.env fajl ili K8s ConfigMap/Secret).
-// U Spring-u bi ovo bio application.properties / application.yml.
+type JWTConfig struct {
+	Secret string
+}
+
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -41,6 +52,7 @@ func Load() *Config {
 			Env:  getEnv("APP_ENV", "development"),
 		},
 		Database: DatabaseConfig{
+			Type:       getEnv("DB_TYPE", "postgres"),
 			Host:       getEnv("DB_HOST", "localhost"),
 			Port:       getEnv("DB_PORT", "5432"),
 			Name:       getEnv("DB_NAME", "shop"),
@@ -49,8 +61,16 @@ func Load() *Config {
 			SSLMode:    getEnv("DB_SSLMODE", "disable"),
 			LogQueries: getEnv("DB_LOG_QUERIES", "false") == "true",
 		},
+		Redis: RedisConfig{
+			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvInt("REDIS_DB", 0),
+		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
+		},
+		JWT: JWTConfig{
+			Secret: getEnv("JWT_SECRET", "change-me-in-production"),
 		},
 	}
 }
