@@ -44,10 +44,11 @@ type Order struct {
 	Items      []OrderItem `gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE" json:"items"`
 	Total      float64     `gorm:"type:numeric(18,8);not null"                 json:"total"`
 	Status     OrderStatus `gorm:"type:varchar(20);not null"                   json:"status"`
-	WalletFrom *string     `gorm:"column:wallet_from"                          json:"walletFrom,omitempty"`
-	TxHash     *string     `gorm:"uniqueIndex"                                 json:"txHash,omitempty"`
-	CreatedAt  time.Time   `                                                   json:"createdAt"`
-	UpdatedAt  time.Time   `                                                   json:"updatedAt"`
+	WalletFrom     *string     `gorm:"column:wallet_from"           json:"walletFrom,omitempty"`
+	TxHash         *string     `gorm:"uniqueIndex"                  json:"txHash,omitempty"`
+	IdempotencyKey *string     `gorm:"uniqueIndex;column:idempotency_key" json:"-"`
+	CreatedAt      time.Time   `                                    json:"createdAt"`
+	UpdatedAt      time.Time   `                                    json:"updatedAt"`
 }
 
 // OrderItem stores a price/name snapshot so historical orders stay accurate

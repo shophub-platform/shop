@@ -101,3 +101,16 @@ func (r *orderRepository) FindByTxHash(ctx context.Context, txHash string) (*mod
 	}
 	return &order, err
 }
+
+func (r *orderRepository) FindByIdempotencyKey(ctx context.Context, key string) (*model.Order, error) {
+	var order model.Order
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Where("idempotency_key = ?", key).
+		First(&order).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, repository.ErrNotFound
+	}
+	return &order, err
+}
