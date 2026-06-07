@@ -35,18 +35,29 @@ func main() {
 	}
 	defer logger.Sync()
 
-	itemRepo, cartRepo, orderRepo := initRepositories(cfg, logger)
+	itemRepo, cartRepo, orderRepo, userRepo := initRepositories(cfg, logger)
 
 	// Services
 	itemSvc := service.NewItemService(itemRepo)
 	cartSvc := service.NewCartService(cartRepo, itemRepo)
 	orderSvc := service.NewOrderService(orderRepo, cartRepo, itemRepo)
+	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret)
+
+	// Seed admin on startup (idempotent)
+	seedCtx, seedCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer seedCancel()
+	if err := authSvc.SeedAdmin(seedCtx, cfg.Admin.Email, cfg.Admin.Password); err != nil {
+		logger.Error("failed to seed admin", zap.Error(err))
+	} else {
+		logger.Info("admin seeded", zap.String("email", cfg.Admin.Email))
+	}
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler()
 	itemHandler := handler.NewItemHandler(itemSvc, logger)
 	cartHandler := handler.NewCartHandler(cartSvc, logger)
 	orderHandler := handler.NewOrderHandler(orderSvc, logger)
+	authHandler := handler.NewAuthHandler(authSvc, logger)
 
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -64,6 +75,12 @@ func main() {
 	auth := middleware.Authenticate(cfg.JWT.Secret)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", authHandler.Register)
+			r.Post("/login", authHandler.Login)
+			r.With(auth).Get("/me", authHandler.Me)
+		})
+
 		r.Route("/items", func(r chi.Router) {
 			r.Get("/", itemHandler.List)
 			r.Get("/{id}", itemHandler.GetByID)
@@ -75,8 +92,9 @@ func main() {
 			})
 		})
 
+		// Cart: USER only — admins do not shop
 		r.Route("/cart", func(r chi.Router) {
-			r.Use(auth)
+			r.Use(auth, middleware.RequireUser)
 			r.Get("/", cartHandler.Get)
 			r.Delete("/", cartHandler.Clear)
 			r.Post("/items", cartHandler.AddItem)
@@ -86,10 +104,16 @@ func main() {
 
 		r.Route("/orders", func(r chi.Router) {
 			r.Use(auth)
+			// Both roles: admin sees all, user sees own (filtered in handler)
 			r.Get("/", orderHandler.List)
-			r.Post("/", orderHandler.Create)
 			r.Get("/{id}", orderHandler.GetByID)
-			r.Post("/{id}/confirm", orderHandler.ConfirmPayment)
+			// USER only: placing and confirming orders
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireUser)
+				r.Post("/", orderHandler.Create)
+				r.Post("/{id}/confirm", orderHandler.ConfirmPayment)
+			})
+			// ADMIN only: advancing order status
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireAdmin)
 				r.Patch("/{id}/status", orderHandler.UpdateStatus)
@@ -129,11 +153,12 @@ func main() {
 	logger.Info("server exited cleanly")
 }
 
-// initRepositories connects to the configured backend and returns the three repositories.
+// initRepositories connects to the configured backend and returns all four repositories.
 func initRepositories(cfg *config.Config, logger *zap.Logger) (
 	repository.ItemRepository,
 	repository.CartRepository,
 	repository.OrderRepository,
+	repository.UserRepository,
 ) {
 	if cfg.Database.Type == "redis" {
 		rdb, err := database.NewRedis(cfg.Redis)
@@ -143,7 +168,8 @@ func initRepositories(cfg *config.Config, logger *zap.Logger) (
 		logger.Info("connected to redis", zap.String("addr", cfg.Redis.Addr))
 		return redisrepo.NewItemRepository(rdb),
 			redisrepo.NewCartRepository(rdb),
-			redisrepo.NewOrderRepository(rdb)
+			redisrepo.NewOrderRepository(rdb),
+			redisrepo.NewUserRepository(rdb)
 	}
 
 	db, err := database.NewPostgres(cfg.Database)
@@ -153,5 +179,6 @@ func initRepositories(cfg *config.Config, logger *zap.Logger) (
 	logger.Info("connected to postgres and migrated")
 	return pgrepo.NewItemRepository(db),
 		pgrepo.NewCartRepository(db),
-		pgrepo.NewOrderRepository(db)
+		pgrepo.NewOrderRepository(db),
+		pgrepo.NewUserRepository(db)
 }

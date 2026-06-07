@@ -47,6 +47,7 @@ func NewPostgres(cfg config.DatabaseConfig) (*gorm.DB, error) {
 
 func migrate(db *gorm.DB) error {
 	return db.AutoMigrate(
+		&model.User{},
 		&model.Item{},
 		&model.Cart{},
 		&model.CartItem{},

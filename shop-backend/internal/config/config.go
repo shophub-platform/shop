@@ -11,6 +11,7 @@ type Config struct {
 	Redis    RedisConfig
 	Log      LogConfig
 	JWT      JWTConfig
+	Admin    AdminConfig
 }
 
 type ServerConfig struct {
@@ -45,6 +46,11 @@ type JWTConfig struct {
 	Secret string
 }
 
+type AdminConfig struct {
+	Email    string
+	Password string
+}
+
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -71,6 +77,10 @@ func Load() *Config {
 		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "change-me-in-production"),
+		},
+		Admin: AdminConfig{
+			Email:    getEnv("ADMIN_EMAIL", "admin@shophub.local"),
+			Password: getEnv("ADMIN_PASSWORD", "admin1234"),
 		},
 	}
 }

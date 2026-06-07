@@ -56,8 +56,21 @@ func Authenticate(secret string) func(http.Handler) http.Handler {
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		role, _ := r.Context().Value(UserRoleKey).(string)
-		if role != "admin" {
+		if role != "ADMIN" {
 			response.Error(w, http.StatusForbidden, "admin access required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireUser rejects requests from admin accounts. Must be used after Authenticate.
+// Admin accounts cannot place orders or interact with the cart.
+func RequireUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role, _ := r.Context().Value(UserRoleKey).(string)
+		if role == "ADMIN" {
+			response.Error(w, http.StatusForbidden, "this action is not available for admin accounts")
 			return
 		}
 		next.ServeHTTP(w, r)
