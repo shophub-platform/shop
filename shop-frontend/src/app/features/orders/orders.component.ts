@@ -11,12 +11,12 @@ import { OrderService } from '../../core/services/order.service';
 import { Order, OrderStatus } from '../../core/models/order.model';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: 'Čeka plaćanje',
-  PAID: 'Plaćeno',
-  PROCESSING: 'U obradi',
-  SHIPPED: 'Poslato',
-  DELIVERED: 'Dostavljeno',
-  CANCELLED: 'Otkazano',
+  PENDING_PAYMENT: 'Pending payment',
+  PAID: 'Paid',
+  PROCESSING: 'Processing',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
 };
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -44,15 +44,15 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
     SlicePipe,
   ],
   template: `
-    <h1>Moje porudžbine</h1>
+    <h1>My orders</h1>
 
     @if (loading()) {
       <div class="spinner-wrapper"><mat-spinner /></div>
     } @else if (orders().length === 0) {
       <div class="empty-state">
         <mat-icon>receipt_long</mat-icon>
-        <p>Nemate porudžbina.</p>
-        <a mat-raised-button color="primary" routerLink="/">Počnite kupovinu</a>
+        <p>You have no orders.</p>
+        <a mat-raised-button color="primary" routerLink="/">Start shopping</a>
       </div>
     } @else {
       <table mat-table [dataSource]="orders()" class="orders-table">
@@ -63,19 +63,19 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
         </ng-container>
 
         <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Datum</th>
+          <th mat-header-cell *matHeaderCellDef>Date</th>
           <td mat-cell *matCellDef="let row">{{ row.createdAt | date:'dd.MM.yyyy HH:mm' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="items">
-          <th mat-header-cell *matHeaderCellDef>Artikli</th>
+          <th mat-header-cell *matHeaderCellDef>Items</th>
           <td mat-cell *matCellDef="let row">
             {{ row.items.map(i => i.itemName).join(', ') }}
           </td>
         </ng-container>
 
         <ng-container matColumnDef="total">
-          <th mat-header-cell *matHeaderCellDef>Ukupno</th>
+          <th mat-header-cell *matHeaderCellDef>Total</th>
           <td mat-cell *matCellDef="let row">{{ row.total | number:'1.2-2' }} USDT</td>
         </ng-container>
 
@@ -93,7 +93,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
           <td mat-cell *matCellDef="let row">
             @if (row.status === 'PENDING_PAYMENT') {
               <a mat-button color="primary" [routerLink]="['/checkout', row.id]">
-                Plati
+                Pay
               </a>
             }
           </td>
@@ -130,7 +130,7 @@ export class OrdersComponent implements OnInit {
       next: (res) => { this.orders.set(res.orders); this.loading.set(false); },
       error: () => {
         this.loading.set(false);
-        this.snackBar.open('Greška pri učitavanju porudžbina', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Failed to load orders', 'Close', { duration: 3000 });
       },
     });
   }

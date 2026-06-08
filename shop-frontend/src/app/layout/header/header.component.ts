@@ -32,7 +32,7 @@ import { AuthService } from '../../core/services/auth.service';
       }
 
       @if (auth.isAdmin()) {
-        <a mat-button routerLink="/admin">Items</a>
+        <a mat-button routerLink="/admin">Admin</a>
       }
 
       @if (!auth.isAdmin()) {

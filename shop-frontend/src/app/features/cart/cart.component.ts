@@ -25,33 +25,33 @@ import { Cart, CartItem } from '../../core/models/cart.model';
     DecimalPipe,
   ],
   template: `
-    <h1>Korpa</h1>
+    <h1>Cart</h1>
 
     @if (loading()) {
       <div class="spinner-wrapper"><mat-spinner /></div>
     } @else if (!cart() || cart()!.items.length === 0) {
       <div class="empty-state">
         <mat-icon>shopping_cart</mat-icon>
-        <p>Vaša korpa je prazna.</p>
-        <a mat-raised-button color="primary" routerLink="/">Pregledaj artikle</a>
+        <p>Your cart is empty.</p>
+        <a mat-raised-button color="primary" routerLink="/">Browse items</a>
       </div>
     } @else {
       <table mat-table [dataSource]="cart()!.items" class="cart-table">
 
         <ng-container matColumnDef="item">
-          <th mat-header-cell *matHeaderCellDef>Artikal</th>
+          <th mat-header-cell *matHeaderCellDef>Item</th>
           <td mat-cell *matCellDef="let row">
             <a [routerLink]="['/items', row.item.id]">{{ row.item.name }}</a>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Cena</th>
+          <th mat-header-cell *matHeaderCellDef>Price</th>
           <td mat-cell *matCellDef="let row">{{ row.item.price | number:'1.2-2' }} USDT</td>
         </ng-container>
 
         <ng-container matColumnDef="quantity">
-          <th mat-header-cell *matHeaderCellDef>Količina</th>
+          <th mat-header-cell *matHeaderCellDef>Quantity</th>
           <td mat-cell *matCellDef="let row">
             <div class="qty-controls">
               <button mat-icon-button (click)="changeQty(row, row.quantity - 1)"
@@ -68,7 +68,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
         </ng-container>
 
         <ng-container matColumnDef="subtotal">
-          <th mat-header-cell *matHeaderCellDef>Ukupno</th>
+          <th mat-header-cell *matHeaderCellDef>Subtotal</th>
           <td mat-cell *matCellDef="let row">{{ row.item.price * row.quantity | number:'1.2-2' }} USDT</td>
         </ng-container>
 
@@ -89,18 +89,18 @@ import { Cart, CartItem } from '../../core/models/cart.model';
 
       <div class="cart-footer">
         <div class="total">
-          <strong>Ukupno:</strong>
+          <strong>Total:</strong>
           <span class="total-amount">{{ total() | number:'1.2-2' }} USDT</span>
         </div>
 
         <div class="footer-actions">
           <button mat-button color="warn" (click)="clearCart()">
             <mat-icon>delete_sweep</mat-icon>
-            Isprazni korpu
+            Clear cart
           </button>
           <button mat-raised-button color="primary" (click)="checkout()" [disabled]="ordering()">
             <mat-icon>payment</mat-icon>
-            Naruči
+            Place order
           </button>
         </div>
       </div>
@@ -158,21 +158,21 @@ export class CartComponent implements OnInit {
     if (newQty < 1) return;
     this.cartSvc.updateItem(row.item.id, { quantity: newQty }).subscribe({
       next: (cart) => this.cart.set(cart),
-      error: () => this.snackBar.open('Greška pri izmeni količine', 'Zatvori', { duration: 3000 }),
+      error: () => this.snackBar.open('Failed to update quantity', 'Close', { duration: 3000 }),
     });
   }
 
   removeItem(row: CartItem): void {
     this.cartSvc.removeItem(row.item.id).subscribe({
       next: (cart) => this.cart.set(cart),
-      error: () => this.snackBar.open('Greška pri uklanjanju artikla', 'Zatvori', { duration: 3000 }),
+      error: () => this.snackBar.open('Failed to remove item', 'Close', { duration: 3000 }),
     });
   }
 
   clearCart(): void {
     this.cartSvc.clear().subscribe({
       next: () => this.loadCart(),
-      error: () => this.snackBar.open('Greška', 'Zatvori', { duration: 3000 }),
+      error: () => this.snackBar.open('Error', 'Close', { duration: 3000 }),
     });
   }
 
@@ -185,7 +185,7 @@ export class CartComponent implements OnInit {
       },
       error: () => {
         this.ordering.set(false);
-        this.snackBar.open('Greška pri kreiranju porudžbine', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Failed to create order', 'Close', { duration: 3000 });
       },
     });
   }

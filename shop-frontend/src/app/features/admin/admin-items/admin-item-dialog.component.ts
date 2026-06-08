@@ -1,4 +1,4 @@
-import { Component, inject, Inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   MAT_DIALOG_DATA,
@@ -24,54 +24,54 @@ import { Item } from '../../../core/models/item.model';
     MatSnackBarModule,
   ],
   template: `
-    <h2 mat-dialog-title>{{ isEdit ? 'Izmeni artikal' : 'Novi artikal' }}</h2>
+    <h2 mat-dialog-title>{{ isEdit ? 'Edit item' : 'New item' }}</h2>
 
     <mat-dialog-content>
       <form [formGroup]="form" class="dialog-form">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Naziv</mat-label>
+          <mat-label>Name</mat-label>
           <input matInput formControlName="name" />
           @if (form.get('name')?.hasError('required')) {
-            <mat-error>Naziv je obavezan</mat-error>
+            <mat-error>Name is required</mat-error>
           }
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Opis</mat-label>
+          <mat-label>Description</mat-label>
           <textarea matInput formControlName="description" rows="3"></textarea>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Cena (USDT)</mat-label>
+          <mat-label>Price (USDT)</mat-label>
           <input matInput type="number" formControlName="price" min="0.01" step="0.01" />
           @if (form.get('price')?.hasError('required')) {
-            <mat-error>Cena je obavezna</mat-error>
+            <mat-error>Price is required</mat-error>
           }
           @if (form.get('price')?.hasError('min')) {
-            <mat-error>Cena mora biti veća od 0</mat-error>
+            <mat-error>Price must be greater than 0</mat-error>
           }
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Stanje (kom.)</mat-label>
+          <mat-label>Stock (units)</mat-label>
           <input matInput type="number" formControlName="stock" min="0" />
           @if (form.get('stock')?.hasError('required')) {
-            <mat-error>Stanje je obavezno</mat-error>
+            <mat-error>Stock is required</mat-error>
           }
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>URL slike</mat-label>
+          <mat-label>Image URL</mat-label>
           <input matInput formControlName="imageUrl" />
         </mat-form-field>
       </form>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Otkaži</button>
+      <button mat-button mat-dialog-close>Cancel</button>
       <button mat-raised-button color="primary"
         (click)="submit()" [disabled]="form.invalid || saving">
-        {{ isEdit ? 'Sačuvaj' : 'Kreiraj' }}
+        {{ isEdit ? 'Save' : 'Create' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -119,7 +119,7 @@ export class AdminItemDialogComponent {
       next: () => {
         this.saving = false;
         this.snackBar.open(
-          this.isEdit ? 'Artikal izmenjen' : 'Artikal kreiran',
+          this.isEdit ? 'Item updated' : 'Item created',
           'OK',
           { duration: 2000 },
         );
@@ -127,7 +127,7 @@ export class AdminItemDialogComponent {
       },
       error: () => {
         this.saving = false;
-        this.snackBar.open('Greška pri čuvanju', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Failed to save', 'Close', { duration: 3000 });
       },
     });
   }

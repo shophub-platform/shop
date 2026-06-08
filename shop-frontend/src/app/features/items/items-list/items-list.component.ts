@@ -37,22 +37,22 @@ import { Item, PaginatedMeta } from '../../../core/models/item.model';
   template: `
     <div class="filters">
       <mat-form-field appearance="outline">
-        <mat-label>Pretraga</mat-label>
-        <input matInput [formControl]="searchCtrl" placeholder="Naziv artikla..." />
+        <mat-label>Search</mat-label>
+        <input matInput [formControl]="searchCtrl" placeholder="Item name..." />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Min. cena (USDT)</mat-label>
+        <mat-label>Min. price (USDT)</mat-label>
         <input matInput type="number" [formControl]="minPriceCtrl" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Max. cena (USDT)</mat-label>
+        <mat-label>Max. price (USDT)</mat-label>
         <input matInput type="number" [formControl]="maxPriceCtrl" />
       </mat-form-field>
 
-      <mat-checkbox [formControl]="inStockCtrl">Samo na stanju</mat-checkbox>
+      <mat-checkbox [formControl]="inStockCtrl">In stock only</mat-checkbox>
     </div>
 
     @if (loading()) {
@@ -62,7 +62,7 @@ import { Item, PaginatedMeta } from '../../../core/models/item.model';
     } @else if (items().length === 0) {
       <div class="empty-state">
         <mat-icon>inventory_2</mat-icon>
-        <p>Nema artikala koji odgovaraju pretrazi.</p>
+        <p>No items match your search.</p>
       </div>
     } @else {
       <div class="items-grid">
@@ -82,15 +82,15 @@ import { Item, PaginatedMeta } from '../../../core/models/item.model';
               }
               <p class="item-price">{{ item.price | number:'1.2-2' }} USDT</p>
               <p class="item-stock" [class.out-of-stock]="item.stock === 0">
-                {{ item.stock > 0 ? 'Na stanju: ' + item.stock : 'Nema na stanju' }}
+                {{ item.stock > 0 ? 'In stock: ' + item.stock : 'Out of stock' }}
               </p>
             </mat-card-content>
             <mat-card-actions>
-              <a mat-button [routerLink]="['/items', item.id]">Detalji</a>
+              <a mat-button [routerLink]="['/items', item.id]">Details</a>
               @if (auth.isLoggedIn() && !auth.isAdmin() && item.stock > 0) {
                 <button mat-raised-button color="primary" (click)="addToCart(item)">
                   <mat-icon>add_shopping_cart</mat-icon>
-                  U korpu
+                  Add to cart
                 </button>
               }
             </mat-card-actions>
@@ -203,7 +203,7 @@ export class ItemsListComponent implements OnInit {
       },
       error: () => {
         this.loading.set(false);
-        this.snackBar.open('Greška pri učitavanju artikala', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Failed to load items', 'Close', { duration: 3000 });
       },
     });
   }
@@ -215,8 +215,8 @@ export class ItemsListComponent implements OnInit {
 
   addToCart(item: Item): void {
     this.cartSvc.addItem({ itemId: item.id, quantity: 1 }).subscribe({
-      next: () => this.snackBar.open(`"${item.name}" dodat u korpu`, 'OK', { duration: 2000 }),
-      error: () => this.snackBar.open('Greška pri dodavanju u korpu', 'Zatvori', { duration: 3000 }),
+      next: () => this.snackBar.open(`"${item.name}" added to cart`, 'OK', { duration: 2000 }),
+      error: () => this.snackBar.open('Failed to add to cart', 'Close', { duration: 3000 }),
     });
   }
 }

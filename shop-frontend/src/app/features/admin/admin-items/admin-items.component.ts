@@ -30,15 +30,15 @@ import { AdminItemDialogComponent } from './admin-item-dialog.component';
   ],
   template: `
     <div class="admin-header">
-      <h1>Upravljanje artiklima</h1>
+      <h1>Item management</h1>
       <button mat-raised-button color="primary" (click)="openDialog()">
         <mat-icon>add</mat-icon>
-        Novi artikal
+        New item
       </button>
     </div>
 
     <a mat-button routerLink="/admin/orders">
-      <mat-icon>receipt_long</mat-icon> Porudžbine
+      <mat-icon>receipt_long</mat-icon> Orders
     </a>
 
     @if (loading()) {
@@ -47,17 +47,17 @@ import { AdminItemDialogComponent } from './admin-item-dialog.component';
       <table mat-table [dataSource]="items()" class="items-table">
 
         <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>Naziv</th>
+          <th mat-header-cell *matHeaderCellDef>Name</th>
           <td mat-cell *matCellDef="let row">{{ row.name }}</td>
         </ng-container>
 
         <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Cena (USDT)</th>
+          <th mat-header-cell *matHeaderCellDef>Price (USDT)</th>
           <td mat-cell *matCellDef="let row">{{ row.price | number:'1.2-2' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="stock">
-          <th mat-header-cell *matHeaderCellDef>Stanje</th>
+          <th mat-header-cell *matHeaderCellDef>Stock</th>
           <td mat-cell *matCellDef="let row" [class.low-stock]="row.stock < 5">
             {{ row.stock }}
           </td>
@@ -120,13 +120,13 @@ export class AdminItemsComponent implements OnInit {
   }
 
   delete(item: Item): void {
-    if (!confirm(`Obrisati "${item.name}"?`)) return;
+    if (!confirm(`Delete "${item.name}"?`)) return;
     this.itemSvc.delete(item.id).subscribe({
       next: () => {
-        this.snackBar.open('Artikal obrisan', 'OK', { duration: 2000 });
+        this.snackBar.open('Item deleted', 'OK', { duration: 2000 });
         this.load();
       },
-      error: () => this.snackBar.open('Greška pri brisanju', 'Zatvori', { duration: 3000 }),
+      error: () => this.snackBar.open('Failed to delete', 'Close', { duration: 3000 }),
     });
   }
 }

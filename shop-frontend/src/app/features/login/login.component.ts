@@ -28,8 +28,8 @@ import { AuthService } from '../../core/services/auth.service';
     <div class="login-wrapper">
       <mat-card class="login-card">
         <mat-card-header>
-          <mat-card-title>Prijava</mat-card-title>
-          <mat-card-subtitle>Dobrodošli u ShopHub</mat-card-subtitle>
+          <mat-card-title>Sign in</mat-card-title>
+          <mat-card-subtitle>Welcome to ShopHub</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
@@ -38,15 +38,15 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-label>Email</mat-label>
               <input matInput type="email" formControlName="email" autocomplete="email" />
               @if (form.get('email')?.hasError('required')) {
-                <mat-error>Email je obavezan</mat-error>
+                <mat-error>Email is required</mat-error>
               }
               @if (form.get('email')?.hasError('email')) {
-                <mat-error>Unesite validan email</mat-error>
+                <mat-error>Enter a valid email</mat-error>
               }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Lozinka</mat-label>
+              <mat-label>Password</mat-label>
               <input matInput [type]="showPassword() ? 'text' : 'password'"
                 formControlName="password" autocomplete="current-password" />
               <button mat-icon-button matSuffix type="button"
@@ -54,7 +54,7 @@ import { AuthService } from '../../core/services/auth.service';
                 <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
               @if (form.get('password')?.hasError('required')) {
-                <mat-error>Lozinka je obavezna</mat-error>
+                <mat-error>Password is required</mat-error>
               }
             </mat-form-field>
 
@@ -64,14 +64,14 @@ import { AuthService } from '../../core/services/auth.service';
                 <mat-spinner diameter="20" />
               } @else {
                 <mat-icon>login</mat-icon>
-                Prijavi se
+                Sign in
               }
             </button>
           </form>
         </mat-card-content>
 
         <mat-card-actions>
-          <span>Nemate nalog? <a routerLink="/register">Registrujte se</a></span>
+          <span>Don't have an account? <a routerLink="/register">Register</a></span>
         </mat-card-actions>
       </mat-card>
     </div>
@@ -114,9 +114,9 @@ export class LoginComponent {
       next: () => this.router.navigate(['/']),
       error: (err) => {
         const msg = err.status === 401
-          ? 'Pogrešan email ili lozinka'
-          : 'Greška pri prijavi, pokušajte ponovo';
-        this.snackBar.open(msg, 'Zatvori', { duration: 4000 });
+          ? 'Invalid email or password'
+          : 'Sign in failed, please try again';
+        this.snackBar.open(msg, 'Close', { duration: 4000 });
         this.loading.set(false);
       },
     });

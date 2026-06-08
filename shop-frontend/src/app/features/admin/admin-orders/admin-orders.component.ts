@@ -12,12 +12,12 @@ import { OrderService } from '../../../core/services/order.service';
 import { Order, OrderStatus, UpdateOrderStatusRequest } from '../../../core/models/order.model';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: 'Čeka plaćanje',
-  PAID: 'Plaćeno',
-  PROCESSING: 'U obradi',
-  SHIPPED: 'Poslato',
-  DELIVERED: 'Dostavljeno',
-  CANCELLED: 'Otkazano',
+  PENDING_PAYMENT: 'Pending payment',
+  PAID: 'Paid',
+  PROCESSING: 'Processing',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
 };
 
 @Component({
@@ -38,9 +38,9 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   ],
   template: `
     <div class="admin-header">
-      <h1>Porudžbine</h1>
+      <h1>Orders</h1>
       <a mat-button routerLink="/admin/items">
-        <mat-icon>inventory_2</mat-icon> Artikli
+        <mat-icon>inventory_2</mat-icon> Items
       </a>
     </div>
 
@@ -49,7 +49,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
     } @else if (orders().length === 0) {
       <div class="empty-state">
         <mat-icon>receipt_long</mat-icon>
-        <p>Nema porudžbina.</p>
+        <p>No orders found.</p>
       </div>
     } @else {
       <table mat-table [dataSource]="orders()" class="orders-table">
@@ -60,17 +60,17 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
         </ng-container>
 
         <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Datum</th>
+          <th mat-header-cell *matHeaderCellDef>Date</th>
           <td mat-cell *matCellDef="let row">{{ row.createdAt | date:'dd.MM.yyyy HH:mm' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="userId">
-          <th mat-header-cell *matHeaderCellDef>Korisnik</th>
+          <th mat-header-cell *matHeaderCellDef>User</th>
           <td mat-cell *matCellDef="let row" class="mono">{{ row.userId | slice:0:8 }}…</td>
         </ng-container>
 
         <ng-container matColumnDef="total">
-          <th mat-header-cell *matHeaderCellDef>Ukupno</th>
+          <th mat-header-cell *matHeaderCellDef>Total</th>
           <td mat-cell *matCellDef="let row">{{ row.total | number:'1.2-2' }} USDT</td>
         </ng-container>
 
@@ -82,24 +82,24 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Akcija</th>
+          <th mat-header-cell *matHeaderCellDef>Action</th>
           <td mat-cell *matCellDef="let row">
             @if (row.status === 'PAID') {
               <button mat-button color="primary" (click)="setStatus(row, 'PROCESSING')">
-                U obradu
+                Process
               </button>
               <button mat-button color="warn" (click)="setStatus(row, 'CANCELLED')">
-                Otkaži
+                Cancel
               </button>
             }
             @if (row.status === 'PROCESSING') {
               <button mat-button color="primary" (click)="setStatus(row, 'SHIPPED')">
-                Poslato
+                Mark shipped
               </button>
             }
             @if (row.status === 'SHIPPED') {
               <button mat-button color="primary" (click)="setStatus(row, 'DELIVERED')">
-                Dostavljeno
+                Mark delivered
               </button>
             }
           </td>
@@ -151,9 +151,9 @@ export class AdminOrdersComponent implements OnInit {
         this.orders.update((list) =>
           list.map((o) => (o.id === updated.id ? updated : o)),
         );
-        this.snackBar.open('Status promenjen', 'OK', { duration: 2000 });
+        this.snackBar.open('Status updated', 'OK', { duration: 2000 });
       },
-      error: () => this.snackBar.open('Greška pri promeni statusa', 'Zatvori', { duration: 3000 }),
+      error: () => this.snackBar.open('Failed to update status', 'Close', { duration: 3000 }),
     });
   }
 }

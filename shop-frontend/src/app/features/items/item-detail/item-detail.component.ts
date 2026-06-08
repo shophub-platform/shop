@@ -46,7 +46,7 @@ import { Item } from '../../../core/models/item.model';
 
         <div class="info-section">
           <a mat-button routerLink="/" class="back-btn">
-            <mat-icon>arrow_back</mat-icon> Nazad
+            <mat-icon>arrow_back</mat-icon> Back
           </a>
 
           <h1>{{ item()!.name }}</h1>
@@ -58,24 +58,24 @@ import { Item } from '../../../core/models/item.model';
           <p class="price">{{ item()!.price | number:'1.2-2' }} USDT</p>
 
           <p class="stock" [class.out-of-stock]="item()!.stock === 0">
-            {{ item()!.stock > 0 ? 'Na stanju: ' + item()!.stock + ' kom.' : 'Nema na stanju' }}
+            {{ item()!.stock > 0 ? 'In stock: ' + item()!.stock : 'Out of stock' }}
           </p>
 
           @if (auth.isLoggedIn() && !auth.isAdmin() && item()!.stock > 0) {
             <div class="quantity-row">
               <mat-form-field appearance="outline" class="qty-field">
-                <mat-label>Količina</mat-label>
+                <mat-label>Quantity</mat-label>
                 <input matInput type="number" [formControl]="qtyCtrl" min="1" [max]="item()!.stock" />
               </mat-form-field>
 
               <button mat-raised-button color="primary" (click)="addToCart()" [disabled]="qtyCtrl.invalid || adding()">
                 <mat-icon>add_shopping_cart</mat-icon>
-                Dodaj u korpu
+                Add to cart
               </button>
             </div>
           } @else if (!auth.isLoggedIn()) {
             <p class="login-hint">
-              <a routerLink="/login">Prijavite se</a> da biste dodali u korpu.
+              <a routerLink="/login">Sign in</a> to add items to your cart.
             </p>
           }
         </div>
@@ -83,8 +83,8 @@ import { Item } from '../../../core/models/item.model';
     } @else {
       <div class="empty-state">
         <mat-icon>error_outline</mat-icon>
-        <p>Artikal nije pronađen.</p>
-        <a mat-button routerLink="/">Nazad na listu</a>
+        <p>Item not found.</p>
+        <a mat-button routerLink="/">Back to list</a>
       </div>
     }
   `,
@@ -150,12 +150,12 @@ export class ItemDetailComponent implements OnInit {
     this.cartSvc.addItem({ itemId: item.id, quantity: this.qtyCtrl.value! }).subscribe({
       next: () => {
         this.adding.set(false);
-        this.snackBar.open(`"${item.name}" dodat u korpu`, 'Idi u korpu', { duration: 3000 })
+        this.snackBar.open(`"${item.name}" added to cart`, 'Go to cart', { duration: 3000 })
           .onAction().subscribe(() => this.router.navigate(['/cart']));
       },
       error: () => {
         this.adding.set(false);
-        this.snackBar.open('Greška pri dodavanju u korpu', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Failed to add to cart', 'Close', { duration: 3000 });
       },
     });
   }

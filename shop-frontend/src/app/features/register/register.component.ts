@@ -34,8 +34,8 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
     <div class="register-wrapper">
       <mat-card class="register-card">
         <mat-card-header>
-          <mat-card-title>Registracija</mat-card-title>
-          <mat-card-subtitle>Kreirajte novi nalog</mat-card-subtitle>
+          <mat-card-title>Register</mat-card-title>
+          <mat-card-subtitle>Create a new account</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
@@ -44,15 +44,15 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
               <mat-label>Email</mat-label>
               <input matInput type="email" formControlName="email" autocomplete="email" />
               @if (form.get('email')?.hasError('required')) {
-                <mat-error>Email je obavezan</mat-error>
+                <mat-error>Email is required</mat-error>
               }
               @if (form.get('email')?.hasError('email')) {
-                <mat-error>Unesite validan email</mat-error>
+                <mat-error>Enter a valid email</mat-error>
               }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Lozinka</mat-label>
+              <mat-label>Password</mat-label>
               <input matInput [type]="showPassword() ? 'text' : 'password'"
                 formControlName="password" autocomplete="new-password" />
               <button mat-icon-button matSuffix type="button"
@@ -60,19 +60,19 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
                 <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
               @if (form.get('password')?.hasError('required')) {
-                <mat-error>Lozinka je obavezna</mat-error>
+                <mat-error>Password is required</mat-error>
               }
               @if (form.get('password')?.hasError('minlength')) {
-                <mat-error>Lozinka mora imati najmanje 8 karaktera</mat-error>
+                <mat-error>Password must be at least 8 characters</mat-error>
               }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Potvrda lozinke</mat-label>
+              <mat-label>Confirm password</mat-label>
               <input matInput [type]="showPassword() ? 'text' : 'password'"
                 formControlName="confirmPassword" autocomplete="new-password" />
               @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.dirty) {
-                <mat-error>Lozinke se ne podudaraju</mat-error>
+                <mat-error>Passwords do not match</mat-error>
               }
             </mat-form-field>
 
@@ -82,14 +82,14 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
                 <mat-spinner diameter="20" />
               } @else {
                 <mat-icon>person_add</mat-icon>
-                Registrujte se
+                Register
               }
             </button>
           </form>
         </mat-card-content>
 
         <mat-card-actions>
-          <span>Već imate nalog? <a routerLink="/login">Prijavite se</a></span>
+          <span>Already have an account? <a routerLink="/login">Sign in</a></span>
         </mat-card-actions>
       </mat-card>
     </div>
@@ -134,14 +134,14 @@ export class RegisterComponent {
 
     this.auth.register(email!, password!).subscribe({
       next: () => {
-        this.snackBar.open('Nalog kreiran! Prijavite se.', 'Zatvori', { duration: 3000 });
+        this.snackBar.open('Account created! Please sign in.', 'Close', { duration: 3000 });
         this.router.navigate(['/login']);
       },
       error: (err) => {
         const msg = err.status === 409
-          ? 'Email je već u upotrebi'
-          : 'Greška pri registraciji, pokušajte ponovo';
-        this.snackBar.open(msg, 'Zatvori', { duration: 4000 });
+          ? 'Email is already in use'
+          : 'Registration failed, please try again';
+        this.snackBar.open(msg, 'Close', { duration: 4000 });
         this.loading.set(false);
       },
     });

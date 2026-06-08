@@ -18,7 +18,11 @@ func NewCartService(cartRepo repository.CartRepository, itemRepo repository.Item
 }
 
 func (s *CartService) GetCart(ctx context.Context, userID string) (*model.Cart, error) {
-	return s.cartRepo.FindOrCreateByUserID(ctx, userID)
+	cart, err := s.cartRepo.FindOrCreateByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichCart(ctx, cart), nil
 }
 
 func (s *CartService) AddItem(ctx context.Context, userID string, itemID uuid.UUID, quantity int) (*model.Cart, error) {
@@ -29,7 +33,11 @@ func (s *CartService) AddItem(ctx context.Context, userID string, itemID uuid.UU
 	if err != nil {
 		return nil, err
 	}
-	return s.cartRepo.AddOrUpdateItem(ctx, cart.ID, itemID, quantity)
+	cart, err = s.cartRepo.AddOrUpdateItem(ctx, cart.ID, itemID, quantity)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichCart(ctx, cart), nil
 }
 
 func (s *CartService) SetItemQuantity(ctx context.Context, userID string, itemID uuid.UUID, quantity int) (*model.Cart, error) {
@@ -37,7 +45,11 @@ func (s *CartService) SetItemQuantity(ctx context.Context, userID string, itemID
 	if err != nil {
 		return nil, err
 	}
-	return s.cartRepo.SetItemQuantity(ctx, cart.ID, itemID, quantity)
+	cart, err = s.cartRepo.SetItemQuantity(ctx, cart.ID, itemID, quantity)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichCart(ctx, cart), nil
 }
 
 func (s *CartService) RemoveItem(ctx context.Context, userID string, itemID uuid.UUID) (*model.Cart, error) {
@@ -45,7 +57,22 @@ func (s *CartService) RemoveItem(ctx context.Context, userID string, itemID uuid
 	if err != nil {
 		return nil, err
 	}
-	return s.cartRepo.RemoveItem(ctx, cart.ID, itemID)
+	cart, err = s.cartRepo.RemoveItem(ctx, cart.ID, itemID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichCart(ctx, cart), nil
+}
+
+func (s *CartService) enrichCart(ctx context.Context, cart *model.Cart) *model.Cart {
+	for i, ci := range cart.Items {
+		item, err := s.itemRepo.FindByID(ctx, ci.ItemID)
+		if err != nil {
+			continue
+		}
+		cart.Items[i].Item = *item
+	}
+	return cart
 }
 
 func (s *CartService) ClearCart(ctx context.Context, userID string) error {

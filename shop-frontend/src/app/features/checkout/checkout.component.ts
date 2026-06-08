@@ -31,7 +31,7 @@ import { Order } from '../../core/models/order.model';
         <mat-card class="checkout-card">
           <mat-card-header>
             <mat-icon mat-card-avatar>payment</mat-icon>
-            <mat-card-title>Plaćanje porudžbine</mat-card-title>
+            <mat-card-title>Order payment</mat-card-title>
             <mat-card-subtitle>ID: {{ order()!.id }}</mat-card-subtitle>
           </mat-card-header>
 
@@ -46,22 +46,22 @@ import { Order } from '../../core/models/order.model';
             </div>
 
             <div class="total-row">
-              <strong>Ukupno za uplatu:</strong>
+              <strong>Total to pay:</strong>
               <span class="total-amount">{{ order()!.total | number:'1.2-2' }} USDT</span>
             </div>
 
             @if (order()!.status === 'PAID') {
               <div class="paid-banner">
                 <mat-icon>check_circle</mat-icon>
-                <span>Plaćanje potvrđeno!</span>
+                <span>Payment confirmed!</span>
               </div>
               @if (order()!.txHash) {
                 <p class="tx-hash">TxHash: <code>{{ order()!.txHash }}</code></p>
               }
             } @else {
               <p class="info-text">
-                Kliknite "Plati MetaMask-om" da biste inicirali blockchain transakciju
-                na Sepolia mreži u USDT.
+                Click "Pay with MetaMask" to initiate a blockchain transaction
+                on the Sepolia network in USDT.
               </p>
             }
           </mat-card-content>
@@ -75,14 +75,14 @@ import { Order } from '../../core/models/order.model';
                 } @else {
                   <mat-icon>account_balance_wallet</mat-icon>
                 }
-                Plati MetaMask-om
+                Pay with MetaMask
               </button>
             } @else {
               <a mat-raised-button color="primary" routerLink="/orders">
-                Moje porudžbine
+                My orders
               </a>
             }
-            <a mat-button routerLink="/">Nazad na prodavnicu</a>
+            <a mat-button routerLink="/">Back to store</a>
           </mat-card-actions>
         </mat-card>
       </div>
@@ -132,7 +132,7 @@ export class CheckoutComponent implements OnInit {
 
   async payWithMetaMask(): Promise<void> {
     this.snackBar.open(
-      'Web3 integracija dolazi u F6 fazi. Za sada koristite /confirm endpoint direktno.',
+      'Web3 integration coming in phase F6. For now use the /confirm endpoint directly.',
       'OK',
       { duration: 5000 },
     );
