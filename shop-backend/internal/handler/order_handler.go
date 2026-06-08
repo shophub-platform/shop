@@ -46,7 +46,7 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role, _ := r.Context().Value(middleware.UserRoleKey).(string)
-	if role != "admin" {
+	if role != "ADMIN" {
 		userID := middleware.UserIDFromContext(r.Context())
 		filter.UserID = &userID
 	}
@@ -106,7 +106,7 @@ func (h *OrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role, _ := r.Context().Value(middleware.UserRoleKey).(string)
-	if role != "admin" && order.UserID != middleware.UserIDFromContext(r.Context()) {
+	if role != "ADMIN" && order.UserID != middleware.UserIDFromContext(r.Context()) {
 		response.NotFound(w, "order not found")
 		return
 	}
