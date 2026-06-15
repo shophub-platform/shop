@@ -29,7 +29,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
 
     @if (loading()) {
       <div class="spinner-wrapper"><mat-spinner /></div>
-    } @else if (!cart() || cart()!.items.length === 0) {
+    } @else if (!cart() || !cart()!.items?.length) {
       <div class="empty-state">
         <mat-icon>shopping_cart</mat-icon>
         <p>Your cart is empty.</p>

@@ -144,7 +144,7 @@ func (r *cartRepository) loadCart(ctx context.Context, cartID uuid.UUID, userID 
 		return nil, err
 	}
 
-	cart := &model.Cart{ID: cartID, UserID: userID}
+	cart := &model.Cart{ID: cartID, UserID: userID, Items: []model.CartItem{}}
 	for _, jsonData := range itemsMap {
 		var ci model.CartItem
 		if err := json.Unmarshal([]byte(jsonData), &ci); err != nil {
