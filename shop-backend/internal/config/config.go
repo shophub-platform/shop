@@ -6,12 +6,13 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	Log      LogConfig
-	JWT      JWTConfig
-	Admin    AdminConfig
+	Server     ServerConfig
+	Database   DatabaseConfig
+	Redis      RedisConfig
+	Log        LogConfig
+	JWT        JWTConfig
+	Admin      AdminConfig
+	Blockchain BlockchainConfig
 }
 
 type ServerConfig struct {
@@ -51,6 +52,14 @@ type AdminConfig struct {
 	Password string
 }
 
+type BlockchainConfig struct {
+	ShopWalletAddress   string
+	MockUSDTAddress     string
+	ListenerInternalKey string
+	SepoliaRPCURL       string
+	ListenerBackendURL  string
+}
+
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -81,6 +90,13 @@ func Load() *Config {
 		Admin: AdminConfig{
 			Email:    getEnv("ADMIN_EMAIL", "admin@shophub.local"),
 			Password: getEnv("ADMIN_PASSWORD", "admin1234"),
+		},
+		Blockchain: BlockchainConfig{
+			ShopWalletAddress:   getEnv("SHOP_WALLET_ADDRESS", ""),
+			MockUSDTAddress:     getEnv("MOCKUSDT_ADDRESS", ""),
+			ListenerInternalKey: getEnv("LISTENER_INTERNAL_KEY", "change-me"),
+			SepoliaRPCURL:       getEnv("SEPOLIA_RPC_URL", ""),
+			ListenerBackendURL:  getEnv("LISTENER_BACKEND_URL", "http://localhost:8081"),
 		},
 	}
 }

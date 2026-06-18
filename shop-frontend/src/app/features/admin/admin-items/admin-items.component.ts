@@ -52,7 +52,7 @@ import { AdminItemDialogComponent } from './admin-item-dialog.component';
         </ng-container>
 
         <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Price (USDT)</th>
+          <th mat-header-cell *matHeaderCellDef>Price (mUSDT)</th>
           <td mat-cell *matCellDef="let row">{{ row.price | number:'1.2-2' }}</td>
         </ng-container>
 

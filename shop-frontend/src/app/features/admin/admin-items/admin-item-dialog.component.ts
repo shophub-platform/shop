@@ -42,7 +42,7 @@ import { Item } from '../../../core/models/item.model';
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Price (USDT)</mat-label>
+          <mat-label>Price (mUSDT)</mat-label>
           <input matInput type="number" formControlName="price" min="0.01" step="0.01" />
           @if (form.get('price')?.hasError('required')) {
             <mat-error>Price is required</mat-error>

@@ -9,6 +9,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { DecimalPipe } from '@angular/common';
 import { CartService } from '../../core/services/cart.service';
 import { OrderService } from '../../core/services/order.service';
+import { Web3Service } from '../../core/services/web3.service';
 import { Cart, CartItem } from '../../core/models/cart.model';
 
 @Component({
@@ -47,7 +48,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
 
         <ng-container matColumnDef="price">
           <th mat-header-cell *matHeaderCellDef>Price</th>
-          <td mat-cell *matCellDef="let row">{{ row.item.price | number:'1.2-2' }} USDT</td>
+          <td mat-cell *matCellDef="let row">{{ row.item.price | number:'1.2-2' }} mUSDT</td>
         </ng-container>
 
         <ng-container matColumnDef="quantity">
@@ -69,7 +70,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
 
         <ng-container matColumnDef="subtotal">
           <th mat-header-cell *matHeaderCellDef>Subtotal</th>
-          <td mat-cell *matCellDef="let row">{{ row.item.price * row.quantity | number:'1.2-2' }} USDT</td>
+          <td mat-cell *matCellDef="let row">{{ row.item.price * row.quantity | number:'1.2-2' }} mUSDT</td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
@@ -90,7 +91,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
       <div class="cart-footer">
         <div class="total">
           <strong>Total:</strong>
-          <span class="total-amount">{{ total() | number:'1.2-2' }} USDT</span>
+          <span class="total-amount">{{ total() | number:'1.2-2' }} mUSDT</span>
         </div>
 
         <div class="footer-actions">
@@ -129,6 +130,7 @@ import { Cart, CartItem } from '../../core/models/cart.model';
 export class CartComponent implements OnInit {
   private cartSvc = inject(CartService);
   private orderSvc = inject(OrderService);
+  private web3Svc = inject(Web3Service);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
 
@@ -178,15 +180,26 @@ export class CartComponent implements OnInit {
 
   checkout(): void {
     this.ordering.set(true);
-    this.orderSvc.create().subscribe({
-      next: (order) => {
-        this.ordering.set(false);
-        this.router.navigate(['/checkout', order.id]);
-      },
-      error: () => {
-        this.ordering.set(false);
-        this.snackBar.open('Failed to create order', 'Close', { duration: 3000 });
-      },
+    this.getWalletAddress().then((walletFrom) => {
+      this.orderSvc.create({ walletFrom }).subscribe({
+        next: (order) => {
+          this.ordering.set(false);
+          this.router.navigate(['/checkout', order.id]);
+        },
+        error: () => {
+          this.ordering.set(false);
+          this.snackBar.open('Failed to create order', 'Close', { duration: 3000 });
+        },
+      });
     });
+  }
+
+  private async getWalletAddress(): Promise<string | null> {
+    if (!this.web3Svc.isAvailable()) return null;
+    try {
+      return await this.web3Svc.connect();
+    } catch {
+      return null;
+    }
   }
 }

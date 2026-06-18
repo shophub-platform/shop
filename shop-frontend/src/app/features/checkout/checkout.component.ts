@@ -8,6 +8,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { DecimalPipe } from '@angular/common';
 import { OrderService } from '../../core/services/order.service';
+import { Web3Service } from '../../core/services/web3.service';
+import { ShopConfigService } from '../../core/services/shop-config.service';
 import { Order } from '../../core/models/order.model';
 
 @Component({
@@ -40,14 +42,14 @@ import { Order } from '../../core/models/order.model';
               @for (item of order()!.items; track item.id) {
                 <div class="order-item">
                   <span>{{ item.itemName }} × {{ item.quantity }}</span>
-                  <span>{{ item.subtotal | number:'1.2-2' }} USDT</span>
+                  <span>{{ item.subtotal | number:'1.2-2' }} mUSDT</span>
                 </div>
               }
             </div>
 
             <div class="total-row">
               <strong>Total to pay:</strong>
-              <span class="total-amount">{{ order()!.total | number:'1.2-2' }} USDT</span>
+              <span class="total-amount">{{ order()!.total | number:'1.2-2' }} mUSDT</span>
             </div>
 
             @if (order()!.status === 'PAID') {
@@ -56,20 +58,39 @@ import { Order } from '../../core/models/order.model';
                 <span>Payment confirmed!</span>
               </div>
               @if (order()!.txHash) {
-                <p class="tx-hash">TxHash: <code>{{ order()!.txHash }}</code></p>
+                <p class="tx-hash">
+                  TxHash:
+                  <a [href]="'https://sepolia.etherscan.io/tx/' + order()!.txHash"
+                     target="_blank" rel="noopener">
+                    {{ order()!.txHash!.slice(0, 20) }}...
+                  </a>
+                </p>
               }
             } @else {
-              <p class="info-text">
-                Click "Pay with MetaMask" to initiate a blockchain transaction
-                on the Sepolia network in USDT.
-              </p>
+              @if (!web3Svc.isAvailable()) {
+                <div class="warning-banner">
+                  <mat-icon>warning</mat-icon>
+                  <span>MetaMask not detected. Please install it to pay.</span>
+                </div>
+              } @else {
+                <p class="info-text">
+                  Click "Pay with MetaMask" to transfer
+                  <strong>{{ order()!.total | number:'1.2-2' }} mUSDT</strong>
+                  on Sepolia testnet. MetaMask will open for confirmation.
+                </p>
+              }
+            }
+
+            @if (statusMessage()) {
+              <p class="status-msg">{{ statusMessage() }}</p>
             }
           </mat-card-content>
 
           <mat-card-actions>
             @if (order()!.status === 'PENDING_PAYMENT') {
               <button mat-raised-button color="primary"
-                (click)="payWithMetaMask()" [disabled]="paying()">
+                (click)="payWithMetaMask()"
+                [disabled]="paying() || !web3Svc.isAvailable()">
                 @if (paying()) {
                   <mat-spinner diameter="20" />
                 } @else {
@@ -107,8 +128,14 @@ import { Order } from '../../core/models/order.model';
       padding: 12px; background: #e8f5e9; border-radius: 8px;
       color: #2e7d32; margin: 16px 0;
     }
+    .warning-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px; background: #fff3e0; border-radius: 8px;
+      color: #e65100; margin: 16px 0;
+    }
     .tx-hash { font-size: 0.75rem; word-break: break-all; color: #555; }
     .info-text { color: #666; line-height: 1.6; margin: 16px 0; }
+    .status-msg { color: #555; font-size: 0.85rem; font-style: italic; }
     mat-card-actions { display: flex; gap: 12px; flex-wrap: wrap; }
   `],
 })
@@ -117,10 +144,13 @@ export class CheckoutComponent implements OnInit {
   private router = inject(Router);
   private orderSvc = inject(OrderService);
   private snackBar = inject(MatSnackBar);
+  web3Svc = inject(Web3Service);
+  private shopConfigSvc = inject(ShopConfigService);
 
   order = signal<Order | null>(null);
   loading = signal(true);
   paying = signal(false);
+  statusMessage = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('orderId')!;
@@ -131,10 +161,44 @@ export class CheckoutComponent implements OnInit {
   }
 
   async payWithMetaMask(): Promise<void> {
-    this.snackBar.open(
-      'Web3 integration coming in phase F6. For now use the /confirm endpoint directly.',
-      'OK',
-      { duration: 5000 },
-    );
+    this.paying.set(true);
+    this.statusMessage.set(null);
+
+    try {
+      // 1. Load shop wallet + contract address from backend
+      this.statusMessage.set('Loading shop configuration...');
+      const config = await this.shopConfigSvc.get();
+
+      // 2. Connect MetaMask
+      this.statusMessage.set('Connecting to MetaMask...');
+      await this.web3Svc.connect();
+
+      // 3. Make sure we are on Sepolia
+      this.statusMessage.set('Switching to Sepolia testnet...');
+      await this.web3Svc.switchToSepolia();
+
+      // 4. Send the USDT transfer — MetaMask popup opens here
+      this.statusMessage.set('Waiting for MetaMask confirmation...');
+      const txHash = await this.web3Svc.transferUSDT(
+        config.contractAddress,
+        config.walletAddress,
+        this.order()!.total,
+      );
+
+      // 5. Notify backend — order status becomes PAID
+      this.statusMessage.set('Confirming payment on server...');
+      const updated = await this.orderSvc.confirmPayment(this.order()!.id, { txHash }).toPromise();
+      this.order.set(updated!);
+
+      this.paying.set(false);
+      this.statusMessage.set(null);
+      this.snackBar.open('Payment confirmed!', 'OK', { duration: 5000 });
+
+    } catch (err: any) {
+      this.paying.set(false);
+      this.statusMessage.set(null);
+      const msg = err?.info?.error?.message ?? err?.message ?? 'Payment failed';
+      this.snackBar.open(msg, 'Close', { duration: 7000 });
+    }
   }
 }

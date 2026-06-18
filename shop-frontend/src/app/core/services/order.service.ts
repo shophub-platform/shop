@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import {
   Order,
   OrdersResponse,
+  CreateOrderRequest,
   ConfirmPaymentRequest,
   UpdateOrderStatusRequest,
   OrderFilters,
@@ -37,9 +38,9 @@ export class OrderService {
       .pipe(map((r) => r.data));
   }
 
-  create(): Observable<Order> {
+  create(req: CreateOrderRequest = {}): Observable<Order> {
     return this.http
-      .post<ApiResponse<Order>>(this.base, {})
+      .post<ApiResponse<Order>>(this.base, req)
       .pipe(map((r) => r.data));
   }
 
