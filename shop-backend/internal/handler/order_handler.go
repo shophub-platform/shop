@@ -142,6 +142,38 @@ func (h *OrderHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	response.Ok(w, order)
 }
 
+// InternalConfirmPayment handles POST /api/v1/internal/orders/{id}/confirm — called by the
+// blockchain listener. Protected by X-Internal-Key header instead of user JWT.
+func (h *OrderHandler) InternalConfirmPayment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid order id")
+		return
+	}
+	var req confirmPaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TxHash == "" {
+		response.BadRequest(w, "txHash is required")
+		return
+	}
+	order, err := h.svc.ConfirmPayment(r.Context(), id, req.TxHash)
+	if errors.Is(err, repository.ErrNotFound) {
+		response.NotFound(w, "order not found")
+		return
+	}
+	if err != nil {
+		// Idempotency: if frontend already confirmed via MetaMask, return the existing order.
+		if existing, findErr := h.svc.GetByID(r.Context(), id); findErr == nil &&
+			existing.Status == model.OrderStatusPaid {
+			response.Ok(w, existing)
+			return
+		}
+		h.logger.Error("internal confirm payment", zap.Error(err))
+		response.InternalError(w, err.Error())
+		return
+	}
+	response.Ok(w, order)
+}
+
 type updateStatusRequest struct {
 	Status model.OrderStatus `json:"status"`
 }

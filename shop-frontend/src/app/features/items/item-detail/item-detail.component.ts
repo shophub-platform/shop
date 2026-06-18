@@ -55,7 +55,7 @@ import { Item } from '../../../core/models/item.model';
             <p class="description">{{ item()!.description }}</p>
           }
 
-          <p class="price">{{ item()!.price | number:'1.2-2' }} USDT</p>
+          <p class="price">{{ item()!.price | number:'1.2-2' }} mUSDT</p>
 
           <p class="stock" [class.out-of-stock]="item()!.stock === 0">
             {{ item()!.stock > 0 ? 'In stock: ' + item()!.stock : 'Out of stock' }}

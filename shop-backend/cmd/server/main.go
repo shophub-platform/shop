@@ -58,6 +58,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(cartSvc, logger)
 	orderHandler := handler.NewOrderHandler(orderSvc, logger)
 	authHandler := handler.NewAuthHandler(authSvc, logger)
+	configHandler := handler.NewConfigHandler(cfg)
 
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -73,8 +74,15 @@ func main() {
 	r.Get("/health", healthHandler.Health)
 
 	auth := middleware.Authenticate(cfg.JWT.Secret)
+	internalKey := middleware.InternalKeyAuth(cfg.Blockchain.ListenerInternalKey)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		// Public: blockchain config needed by the frontend
+		r.Get("/config", configHandler.GetConfig)
+
+		// Internal: called by the blockchain listener (no user JWT, X-Internal-Key instead)
+		r.With(internalKey).Post("/internal/orders/{id}/confirm", orderHandler.InternalConfirmPayment)
+
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)

@@ -21,7 +21,11 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w" \
     -o /app/server \
-    ./cmd/server
+    ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w" \
+    -o /app/listener \
+    ./cmd/listener
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 # Minimalni image - samo binary, bez Go toolchain-a
@@ -39,6 +43,7 @@ WORKDIR /app
 
 # Kopiraj samo binary iz builder stage-a
 COPY --from=builder /app/server .
+COPY --from=builder /app/listener .
 
 EXPOSE 8081
 

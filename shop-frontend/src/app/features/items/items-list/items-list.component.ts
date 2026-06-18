@@ -43,12 +43,12 @@ import { Item, PaginatedMeta } from '../../../core/models/item.model';
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Min. price (USDT)</mat-label>
+        <mat-label>Min. price (mUSDT)</mat-label>
         <input matInput type="number" [formControl]="minPriceCtrl" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Max. price (USDT)</mat-label>
+        <mat-label>Max. price (mUSDT)</mat-label>
         <input matInput type="number" [formControl]="maxPriceCtrl" />
       </mat-form-field>
 
@@ -80,7 +80,7 @@ import { Item, PaginatedMeta } from '../../../core/models/item.model';
               @if (item.description) {
                 <p class="item-desc">{{ item.description }}</p>
               }
-              <p class="item-price">{{ item.price | number:'1.2-2' }} USDT</p>
+              <p class="item-price">{{ item.price | number:'1.2-2' }} mUSDT</p>
               <p class="item-stock" [class.out-of-stock]="item.stock === 0">
                 {{ item.stock > 0 ? 'In stock: ' + item.stock : 'Out of stock' }}
               </p>

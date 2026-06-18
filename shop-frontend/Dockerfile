@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Layer caching: prvo zavisnosti
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Ostatak koda + produkcijski build (izlaz: dist/shop-frontend/browser)
 COPY . .

@@ -76,7 +76,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 
         <ng-container matColumnDef="total">
           <th mat-header-cell *matHeaderCellDef>Total</th>
-          <td mat-cell *matCellDef="let row">{{ row.total | number:'1.2-2' }} USDT</td>
+          <td mat-cell *matCellDef="let row">{{ row.total | number:'1.2-2' }} mUSDT</td>
         </ng-container>
 
         <ng-container matColumnDef="status">

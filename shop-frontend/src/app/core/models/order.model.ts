@@ -33,6 +33,10 @@ export interface OrdersResponse {
   meta: PaginatedMeta;
 }
 
+export interface CreateOrderRequest {
+  walletFrom?: string | null;
+}
+
 export interface ConfirmPaymentRequest {
   txHash: string;
 }
