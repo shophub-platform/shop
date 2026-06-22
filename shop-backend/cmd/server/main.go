@@ -12,16 +12,20 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 
 	"github.com/shophub/shop/internal/config"
 	"github.com/shophub/shop/internal/database"
 	"github.com/shophub/shop/internal/handler"
+	"github.com/shophub/shop/internal/metrics"
 	"github.com/shophub/shop/internal/middleware"
 	"github.com/shophub/shop/internal/repository"
 	pgrepo "github.com/shophub/shop/internal/repository/postgres"
 	redisrepo "github.com/shophub/shop/internal/repository/redis"
 	"github.com/shophub/shop/internal/service"
+	"github.com/shophub/shop/internal/tracing"
 )
 
 func main() {
@@ -34,6 +38,11 @@ func main() {
 		logger, _ = zap.NewDevelopment()
 	}
 	defer logger.Sync()
+
+	metrics.Register()
+
+	shutdownTracing := tracing.Setup(context.Background(), logger)
+	defer shutdownTracing()
 
 	itemRepo, cartRepo, orderRepo, userRepo := initRepositories(cfg, logger)
 
@@ -63,7 +72,20 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.Recoverer)
+	// OTel tracing middleware: wraps each request in a span.
+	r.Use(func(next http.Handler) http.Handler {
+		return otelhttp.NewHandler(next, "shop",
+			otelhttp.WithSpanNameFormatter(func(_ string, req *http.Request) string {
+				rctx := chi.RouteContext(req.Context())
+				if rctx != nil && rctx.RoutePattern() != "" {
+					return req.Method + " " + rctx.RoutePattern()
+				}
+				return req.Method + " " + req.URL.Path
+			}),
+		)
+	})
 	r.Use(middleware.RequestLogger(logger))
+	r.Use(middleware.PrometheusMetrics)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:4200"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -71,6 +93,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// Prometheus scrape endpoint — not behind auth, not counted in metrics.
+	r.Handle("/metrics", promhttp.Handler())
 	r.Get("/health", healthHandler.Health)
 
 	auth := middleware.Authenticate(cfg.JWT.Secret)

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/shophub/shop/internal/metrics"
 	"github.com/shophub/shop/internal/model"
 	"github.com/shophub/shop/internal/repository"
 )
@@ -88,6 +90,7 @@ func (s *OrderService) CreateFromCart(ctx context.Context, userID string, req Cr
 	if err := s.cartRepo.Clear(ctx, cart.ID); err != nil {
 		return nil, err
 	}
+	metrics.OrdersCreatedTotal.Inc()
 	return order, nil
 }
 
@@ -111,6 +114,7 @@ func (s *OrderService) ConfirmPayment(ctx context.Context, orderID uuid.UUID, tx
 	if err := s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusPaid, &txHash); err != nil {
 		return nil, err
 	}
+	metrics.PaymentProcessingDuration.Observe(time.Since(order.CreatedAt).Seconds())
 	return s.orderRepo.FindByID(ctx, orderID)
 }
 

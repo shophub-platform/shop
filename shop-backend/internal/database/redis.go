@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"github.com/shophub/shop/internal/config"
 )
@@ -14,6 +15,9 @@ func NewRedis(cfg config.RedisConfig) (*redis.Client, error) {
 		DB:       cfg.DB,
 	})
 	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, err
+	}
+	if err := redisotel.InstrumentTracing(client); err != nil {
 		return nil, err
 	}
 	return client, nil
