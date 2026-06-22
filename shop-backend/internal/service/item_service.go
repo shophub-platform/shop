@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/shophub/shop/internal/metrics"
 	"github.com/shophub/shop/internal/model"
 	"github.com/shophub/shop/internal/repository"
 )
@@ -43,6 +44,7 @@ func (s *ItemService) Create(ctx context.Context, req CreateItemRequest) (*model
 	if err := s.repo.Create(ctx, item); err != nil {
 		return nil, err
 	}
+	metrics.ItemsStockLevel.WithLabelValues(item.ID.String(), item.Name).Set(float64(item.Stock))
 	return item, nil
 }
 
@@ -77,9 +79,18 @@ func (s *ItemService) Update(ctx context.Context, id uuid.UUID, req UpdateItemRe
 	if err := s.repo.Update(ctx, item); err != nil {
 		return nil, err
 	}
+	metrics.ItemsStockLevel.WithLabelValues(item.ID.String(), item.Name).Set(float64(item.Stock))
 	return item, nil
 }
 
 func (s *ItemService) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+	item, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	metrics.ItemsStockLevel.DeleteLabelValues(item.ID.String(), item.Name)
+	return nil
 }
